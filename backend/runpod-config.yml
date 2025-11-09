@@ -1,0 +1,46 @@
+# RunPod Template Configuration
+# Use this as a reference when setting up your RunPod instance
+
+name: island-survival-api
+description: Flux.dev Panorama Generator API
+
+# GPU Requirements
+gpu:
+  type: "RTX 4090"  # or A6000, A100
+  count: 1
+  vram: 24  # GB minimum
+
+# Container Configuration
+container:
+  image: python:3.11
+  ports:
+    - 8000:8000
+
+# Volume Configuration
+volumes:
+  - name: models
+    mount_path: /app/models
+    size: 50  # GB for model storage
+  - name: generated_images
+    mount_path: /app/generated_images
+    size: 100  # GB for generated images
+
+# Environment Variables (set these in RunPod UI)
+environment:
+  HUGGINGFACE_TOKEN: "your_token_here"
+  AWS_ACCESS_KEY_ID: "your_key_here"
+  AWS_SECRET_ACCESS_KEY: "your_secret_here"
+  S3_BUCKET_NAME: "island-survival-images"
+  S3_REGION: "us-east-1"
+
+# Startup Command
+startup_command: |
+  cd /app &&
+  pip install -r requirements.txt &&
+  uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Estimated Costs
+estimated_cost:
+  rtx_4090: "$0.34/hour"
+  a6000: "$0.79/hour"
+  a100_40gb: "$1.10/hour"
