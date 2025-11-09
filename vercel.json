@@ -4,11 +4,5 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "NEXT_PUBLIC_API_URL": {
-      "description": "URL of your RunPod API endpoint",
-      "required": true
-    }
-  }
+  "regions": ["iad1"]
 }
