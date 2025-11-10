@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Island Survival - One-Command Setup & Start
-# Usage: HUGGINGFACE_TOKEN=hf_xxx bash quickstart.sh
+# Usage:
+#   Method 1 (with RunPod env var): bash quickstart.sh
+#   Method 2 (inline): HUGGINGFACE_TOKEN=hf_xxx bash quickstart.sh
 
 set -e
 
@@ -12,11 +14,22 @@ echo ""
 if [ -z "$HUGGINGFACE_TOKEN" ]; then
     echo "❌ Error: HUGGINGFACE_TOKEN not set"
     echo ""
-    echo "Run this script like:"
+    echo "Option 1 - Set in RunPod Dashboard (recommended):"
+    echo "  1. Edit Pod → Environment Variables"
+    echo "  2. Add: HUGGINGFACE_TOKEN=hf_your_token"
+    echo "  3. Restart pod and run: bash quickstart.sh"
+    echo ""
+    echo "Option 2 - Pass inline (for current session):"
     echo "  HUGGINGFACE_TOKEN=hf_your_token bash quickstart.sh"
+    echo ""
+    echo "Get token: https://huggingface.co/settings/tokens"
+    echo "Accept license: https://huggingface.co/black-forest-labs/FLUX.1-dev"
     echo ""
     exit 1
 fi
+
+echo "✅ HuggingFace token detected"
+echo ""
 
 # Setup
 cd /workspace
