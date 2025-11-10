@@ -62,7 +62,7 @@ cd backend
 # ============================================================================
 echo ""
 echo "🎨 Step 2/4: Installing Flux.dev dependencies..."
-pip install -q -r requirements.txt
+pip install --ignore-installed -q -r requirements.txt
 mkdir -p /app/generated_images /app/generated_worlds
 
 echo "✅ Flux.dev dependencies installed"
@@ -87,44 +87,53 @@ fi
 if [ -d "HunyuanWorld-1.0" ]; then
     cd HunyuanWorld-1.0
 
-    # Install Real-ESRGAN
+    # Install Real-ESRGAN dependencies
+    echo "  → Installing Real-ESRGAN dependencies..."
+    pip install -q basicsr-fixed facexlib gfpgan 2>/dev/null || echo "  ⚠️  Warning: basicsr-fixed installation failed"
+
+    # Clone and install Real-ESRGAN
     if [ ! -d "Real-ESRGAN" ]; then
-        echo "  → Installing Real-ESRGAN..."
+        echo "  → Cloning Real-ESRGAN..."
         git clone https://github.com/xinntao/Real-ESRGAN.git 2>/dev/null || {
             echo "  ⚠️  Warning: Failed to clone Real-ESRGAN, continuing..."
         }
-        if [ -d "Real-ESRGAN" ]; then
-            cd Real-ESRGAN
-            pip install -q basicsr-fixed facexlib gfpgan 2>/dev/null || true
-            pip install -q -r requirements.txt 2>/dev/null || true
-            python setup.py develop --quiet 2>/dev/null || true
-            cd ..
-        fi
     fi
 
-    # Install ZIM (semantic segmentation support)
+    if [ -d "Real-ESRGAN" ]; then
+        echo "  → Installing Real-ESRGAN package..."
+        cd Real-ESRGAN
+        pip install -q -e . 2>/dev/null || echo "  ⚠️  Warning: Real-ESRGAN installation failed"
+        cd ..
+    fi
+
+    # Install ZIM dependencies
+    echo "  → Installing ZIM dependencies..."
+    pip install -q easydict onnxruntime 2>/dev/null || echo "  ⚠️  Warning: ZIM dependencies installation failed"
+
+    # Clone and install ZIM (semantic segmentation support)
     if [ ! -d "ZIM" ]; then
-        echo "  → Installing ZIM..."
+        echo "  → Cloning ZIM..."
         git clone https://github.com/naver-ai/ZIM.git ZIM 2>/dev/null || {
             echo "  ⚠️  Warning: Failed to clone ZIM repository"
             echo "  ℹ️  Semantic segmentation may be limited"
         }
-        if [ -d "ZIM" ]; then
-            cd ZIM
-            pip install -q easydict 2>/dev/null || true
-            pip install -q -e . 2>/dev/null || echo "  ⚠️  ZIM installation failed, continuing..."
+    fi
 
-            # Download ZIM checkpoint files
-            if [ ! -d "zim_vit_l_2092" ]; then
-                echo "  → Downloading ZIM model checkpoints..."
-                mkdir -p zim_vit_l_2092
-                cd zim_vit_l_2092
-                wget -q https://huggingface.co/naver-iv/zim-anything-vitl/resolve/main/zim_vit_l_2092/encoder.onnx 2>/dev/null || echo "  ⚠️  Failed to download encoder.onnx"
-                wget -q https://huggingface.co/naver-iv/zim-anything-vitl/resolve/main/zim_vit_l_2092/decoder.onnx 2>/dev/null || echo "  ⚠️  Failed to download decoder.onnx"
-                cd ..
-            fi
+    if [ -d "ZIM" ]; then
+        echo "  → Installing ZIM package..."
+        cd ZIM
+        pip install -q -e . 2>/dev/null || echo "  ⚠️  ZIM installation failed, continuing..."
+
+        # Download ZIM checkpoint files
+        if [ ! -d "zim_vit_l_2092" ]; then
+            echo "  → Downloading ZIM model checkpoints..."
+            mkdir -p zim_vit_l_2092
+            cd zim_vit_l_2092
+            wget -q https://huggingface.co/naver-iv/zim-anything-vitl/resolve/main/zim_vit_l_2092/encoder.onnx 2>/dev/null || echo "  ⚠️  Failed to download encoder.onnx"
+            wget -q https://huggingface.co/naver-iv/zim-anything-vitl/resolve/main/zim_vit_l_2092/decoder.onnx 2>/dev/null || echo "  ⚠️  Failed to download decoder.onnx"
             cd ..
         fi
+        cd ..
     fi
 
     # Install HunyuanWorld requirements
