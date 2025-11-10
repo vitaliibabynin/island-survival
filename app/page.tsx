@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import PanoramaViewer from '@/components/PanoramaViewer'
+import WorldViewer3D from '@/components/WorldViewer3D'
 import GenerationControls from '@/components/GenerationControls'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -15,10 +16,22 @@ interface GeneratedImage {
   scenario: string
 }
 
+interface World3D {
+  id: string
+  image_id: string
+  world_url: string
+  created_at: string
+  scenario: string
+}
+
 export default function Home() {
   const [images, setImages] = useState<GeneratedImage[]>([])
   const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null)
+  const [worlds, setWorlds] = useState<World3D[]>([])
+  const [currentWorld, setCurrentWorld] = useState<World3D | null>(null)
+  const [viewMode, setViewMode] = useState<'panorama' | '3d'>('panorama')
   const [loading, setLoading] = useState(false)
+  const [loading3D, setLoading3D] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const [showDebug, setShowDebug] = useState(false)
@@ -147,6 +160,56 @@ export default function Home() {
     }
   }
 
+  const generate3DWorld = async () => {
+    if (!currentImage) {
+      setError('Please generate a panorama first')
+      return
+    }
+
+    setLoading3D(true)
+    setError(null)
+
+    try {
+      // Start 3D generation (returns immediately with job ID)
+      const response = await axios.post(`${API_URL}/api/generate-3d`, {
+        image_id: currentImage.id
+      }, {
+        timeout: 10000
+      })
+
+      const job = response.data
+      console.log('3D generation started, job ID:', job.job_id)
+
+      // Poll for completion
+      const newWorld = await pollJobStatus(job.job_id)
+
+      setWorlds([newWorld, ...worlds])
+      setCurrentWorld(newWorld)
+      setViewMode('3d')
+      setApiStatus('online')
+    } catch (err: any) {
+      console.error('Error generating 3D world:', err)
+
+      let errorMessage = 'Failed to generate 3D world. '
+
+      if (err.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out.'
+      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+        errorMessage += `Cannot reach API at ${API_URL}. Check connection.`
+        setApiStatus('offline')
+      } else if (err.response) {
+        errorMessage += `Server error (${err.response.status}): ${err.response.data?.detail || err.response.statusText}`
+      } else {
+        errorMessage += err.message
+      }
+
+      setError(errorMessage)
+      checkApiHealth()
+    } finally {
+      setLoading3D(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
       <div className="container mx-auto px-4 py-8">
@@ -220,22 +283,83 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main viewer */}
           <div className="lg:col-span-3">
-            <div className="bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
-              {currentImage ? (
-                <PanoramaViewer imageUrl={currentImage.image_url} />
-              ) : (
-                <div className="aspect-[2/1] flex items-center justify-center bg-slate-700">
-                  <p className="text-gray-400">No panoramas generated yet</p>
-                </div>
+            {/* View Mode Toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setViewMode('panorama')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  viewMode === 'panorama'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                }`}
+              >
+                360° Panorama
+              </button>
+              <button
+                onClick={() => setViewMode('3d')}
+                disabled={!currentWorld}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  viewMode === '3d'
+                    ? 'bg-blue-600 text-white'
+                    : currentWorld
+                    ? 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                    : 'bg-slate-700 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                3D World
+              </button>
+              {viewMode === 'panorama' && currentImage && (
+                <button
+                  onClick={generate3DWorld}
+                  disabled={loading3D}
+                  className="ml-auto px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition"
+                >
+                  {loading3D ? 'Generating 3D World...' : '🌍 Generate 3D World'}
+                </button>
               )}
+            </div>
 
-              {currentImage && (
-                <div className="p-4 bg-slate-900">
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {currentImage.scenario}
-                  </h3>
-                  <p className="text-sm text-gray-400">{currentImage.prompt}</p>
-                </div>
+            <div className="bg-slate-800 rounded-lg overflow-hidden shadow-2xl">
+              {viewMode === 'panorama' ? (
+                <>
+                  {currentImage ? (
+                    <PanoramaViewer imageUrl={currentImage.image_url} />
+                  ) : (
+                    <div className="aspect-[2/1] flex items-center justify-center bg-slate-700">
+                      <p className="text-gray-400">No panoramas generated yet</p>
+                    </div>
+                  )}
+
+                  {currentImage && (
+                    <div className="p-4 bg-slate-900">
+                      <h3 className="text-lg font-semibold text-white mb-2">
+                        {currentImage.scenario}
+                      </h3>
+                      <p className="text-sm text-gray-400">{currentImage.prompt}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {currentWorld ? (
+                    <WorldViewer3D worldUrl={currentWorld.world_url} className="aspect-[2/1]" />
+                  ) : (
+                    <div className="aspect-[2/1] flex items-center justify-center bg-slate-700">
+                      <p className="text-gray-400">No 3D worlds generated yet</p>
+                    </div>
+                  )}
+
+                  {currentWorld && (
+                    <div className="p-4 bg-slate-900">
+                      <h3 className="text-lg font-semibold text-white mb-2">
+                        {currentWorld.scenario} - 3D World
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        Explore the 3D environment using mouse controls
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
