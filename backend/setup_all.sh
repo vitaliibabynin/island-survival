@@ -97,17 +97,26 @@ if [ -d "HunyuanWorld-1.0" ]; then
         fi
     fi
 
-    # Install ZIM (optional dependency)
+    # Install ZIM (semantic segmentation support)
     if [ ! -d "ZIM" ]; then
         echo "  → Installing ZIM..."
-        git clone https://github.com/sail-sg/zim.git ZIM 2>/dev/null || {
-            echo "  ⚠️  Warning: ZIM repository not accessible, skipping (optional dependency)"
-            echo "  → Trying pip install instead..."
-            pip install -q zim-pytorch 2>/dev/null || echo "  ⚠️  ZIM pip install also failed, continuing without it"
+        git clone https://github.com/naver-ai/ZIM.git ZIM 2>/dev/null || {
+            echo "  ⚠️  Warning: Failed to clone ZIM repository"
+            echo "  ℹ️  Semantic segmentation may be limited"
         }
         if [ -d "ZIM" ]; then
             cd ZIM
-            pip install -q -e .
+            pip install -q -e . 2>/dev/null || echo "  ⚠️  ZIM installation failed, continuing..."
+
+            # Download ZIM checkpoint files
+            if [ ! -d "zim_vit_l_2092" ]; then
+                echo "  → Downloading ZIM model checkpoints..."
+                mkdir -p zim_vit_l_2092
+                cd zim_vit_l_2092
+                wget -q https://huggingface.co/naver-iv/zim-anything-vitl/resolve/main/zim_vit_l_2092/encoder.onnx 2>/dev/null || echo "  ⚠️  Failed to download encoder.onnx"
+                wget -q https://huggingface.co/naver-iv/zim-anything-vitl/resolve/main/zim_vit_l_2092/decoder.onnx 2>/dev/null || echo "  ⚠️  Failed to download decoder.onnx"
+                cd ..
+            fi
             cd ..
         fi
     fi
