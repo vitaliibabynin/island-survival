@@ -5,6 +5,7 @@ import { useState } from 'react'
 interface GenerationControlsProps {
   onGenerate: (scenario?: string) => void
   loading: boolean
+  apiStatus: 'checking' | 'online' | 'offline'
 }
 
 const SCENARIOS = [
@@ -22,6 +23,7 @@ const SCENARIOS = [
 export default function GenerationControls({
   onGenerate,
   loading,
+  apiStatus,
 }: GenerationControlsProps) {
   const [selectedScenario, setSelectedScenario] = useState('random')
 
@@ -34,6 +36,12 @@ export default function GenerationControls({
       <h3 className="text-lg font-semibold text-white mb-4">
         Generate Panorama
       </h3>
+
+      {apiStatus === 'offline' && (
+        <div className="bg-yellow-500/10 border border-yellow-500 text-yellow-500 px-3 py-2 rounded text-xs mb-4">
+          ⚠️ API disconnected - check connection above
+        </div>
+      )}
 
       <div className="space-y-4">
         <div>
@@ -56,8 +64,8 @@ export default function GenerationControls({
 
         <button
           onClick={handleGenerate}
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded transition"
+          disabled={loading || apiStatus === 'offline'}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded transition"
         >
           {loading ? (
             <span className="flex items-center justify-center">
