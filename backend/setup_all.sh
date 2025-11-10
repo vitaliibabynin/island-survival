@@ -6,7 +6,9 @@
 
 set -e
 
-# Disable git credential prompts for public repositories
+# Configure git to never prompt for credentials (for public repos)
+git config --global credential.helper '!f() { :; }; f'
+git config --global core.askPass ""
 export GIT_TERMINAL_PROMPT=0
 export GIT_ASKPASS=/bin/echo
 
@@ -69,39 +71,59 @@ cd /workspace
 
 if [ ! -d "HunyuanWorld-1.0" ]; then
     echo "  → Cloning HunyuanWorld repository..."
-    git clone https://github.com/Tencent-Hunyuan/HunyuanWorld-1.0.git
+    git clone https://github.com/Tencent-Hunyuan/HunyuanWorld-1.0.git 2>/dev/null || {
+        echo "  ⚠️  Warning: Failed to clone HunyuanWorld"
+        echo "  ℹ️  You can still use Flux.dev for panorama generation"
+        echo "  ℹ️  3D world generation will not be available"
+    }
 fi
 
-cd HunyuanWorld-1.0
+# Only install HunyuanWorld dependencies if directory exists
+if [ -d "HunyuanWorld-1.0" ]; then
+    cd HunyuanWorld-1.0
 
-# Install Real-ESRGAN
-if [ ! -d "Real-ESRGAN" ]; then
-    echo "  → Installing Real-ESRGAN..."
-    git clone https://github.com/xinntao/Real-ESRGAN.git
-    cd Real-ESRGAN
-    pip install -q basicsr facexlib gfpgan
-    pip install -q -r requirements.txt
-    python setup.py develop --quiet
-    cd ..
+    # Install Real-ESRGAN
+    if [ ! -d "Real-ESRGAN" ]; then
+        echo "  → Installing Real-ESRGAN..."
+        git clone https://github.com/xinntao/Real-ESRGAN.git 2>/dev/null || {
+            echo "  ⚠️  Warning: Failed to clone Real-ESRGAN, continuing..."
+        }
+        if [ -d "Real-ESRGAN" ]; then
+            cd Real-ESRGAN
+            pip install -q basicsr facexlib gfpgan 2>/dev/null || true
+            pip install -q -r requirements.txt 2>/dev/null || true
+            python setup.py develop --quiet 2>/dev/null || true
+            cd ..
+        fi
+    fi
+
+    # Install ZIM (optional dependency)
+    if [ ! -d "ZIM" ]; then
+        echo "  → Installing ZIM..."
+        git clone https://github.com/sail-sg/zim.git ZIM 2>/dev/null || {
+            echo "  ⚠️  Warning: ZIM repository not accessible, skipping (optional dependency)"
+            echo "  → Trying pip install instead..."
+            pip install -q zim-pytorch 2>/dev/null || echo "  ⚠️  ZIM pip install also failed, continuing without it"
+        }
+        if [ -d "ZIM" ]; then
+            cd ZIM
+            pip install -q -e .
+            cd ..
+        fi
+    fi
+
+    # Install HunyuanWorld requirements
+    echo "  → Installing HunyuanWorld dependencies..."
+    pip install -q -r requirements.txt 2>/dev/null || true
+    pip install -q DracoPy 2>/dev/null || true
+
+    echo "✅ HunyuanWorld installed"
+    echo ""
+    echo "📝 Note: HunyuanWorld models (~20GB) will download on first use"
+else
+    echo "⚠️  Skipping HunyuanWorld installation (clone failed)"
+    echo "ℹ️  Panorama generation will still work with Flux.dev"
 fi
-
-# Install ZIM
-if [ ! -d "ZIM" ]; then
-    echo "  → Installing ZIM..."
-    git clone https://github.com/sail-sg/zim.git ZIM
-    cd ZIM
-    pip install -q -e .
-    cd ..
-fi
-
-# Install HunyuanWorld requirements
-echo "  → Installing HunyuanWorld dependencies..."
-pip install -q -r requirements.txt
-pip install -q DracoPy 2>/dev/null || true
-
-echo "✅ HunyuanWorld installed"
-echo ""
-echo "📝 Note: HunyuanWorld models (~20GB) will download on first use"
 
 # ============================================================================
 # Step 4: Start API Server
