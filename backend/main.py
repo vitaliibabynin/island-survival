@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -6,6 +6,8 @@ import uvicorn
 import os
 from datetime import datetime
 import json
+import uuid
+from enum import Enum
 
 from image_generator import FluxPanoramaGenerator
 from prompt_generator import PromptGenerator
@@ -27,8 +29,16 @@ generator = FluxPanoramaGenerator()
 prompt_gen = PromptGenerator()
 storage = ImageStorage()
 
-# In-memory storage (replace with database in production)
+# Job status enum
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+# In-memory storage
 generated_images = []
+jobs = {}  # job_id -> job info
 
 
 class GenerateRequest(BaseModel):
@@ -42,6 +52,15 @@ class ImageResponse(BaseModel):
     image_url: str
     created_at: str
     scenario: str
+
+
+class JobResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    created_at: str
+    completed_at: Optional[str] = None
+    result: Optional[ImageResponse] = None
+    error: Optional[str] = None
 
 
 @app.get("/")
@@ -62,18 +81,19 @@ async def health():
     }
 
 
-@app.post("/api/generate", response_model=ImageResponse)
-async def generate_image(request: GenerateRequest):
-    """Generate a 360° panoramic image based on scenario"""
-
+def process_generation(job_id: str, scenario: str, custom_prompt: Optional[str] = None):
+    """Background task to generate image"""
     try:
-        # Generate or use custom prompt
-        if request.custom_prompt:
-            prompt = request.custom_prompt
-        else:
-            prompt = prompt_gen.generate(request.scenario)
+        # Update status to processing
+        jobs[job_id]["status"] = JobStatus.PROCESSING
 
-        print(f"Generating image with prompt: {prompt}")
+        # Generate or use custom prompt
+        if custom_prompt:
+            prompt = custom_prompt
+        else:
+            prompt = prompt_gen.generate(scenario)
+
+        print(f"[Job {job_id}] Generating image with prompt: {prompt}")
 
         # Generate image
         image = generator.generate(prompt)
@@ -81,6 +101,8 @@ async def generate_image(request: GenerateRequest):
         # Save and upload image
         image_id = f"{int(datetime.utcnow().timestamp())}"
         local_path = f"/app/generated_images/{image_id}.png"
+
+        os.makedirs("/app/generated_images", exist_ok=True)
         image.save(local_path)
 
         # Upload to S3 (or use local URL for development)
@@ -92,21 +114,66 @@ async def generate_image(request: GenerateRequest):
             prompt=prompt,
             image_url=image_url,
             created_at=datetime.utcnow().isoformat(),
-            scenario=request.scenario
+            scenario=scenario
         )
 
-        # Store in memory (replace with database)
+        # Store in memory
         generated_images.insert(0, image_data.dict())
 
         # Save to JSON file as backup
         with open("/app/generated_images/metadata.json", "w") as f:
             json.dump(generated_images, f, indent=2)
 
-        return image_data
+        # Update job status
+        jobs[job_id]["status"] = JobStatus.COMPLETED
+        jobs[job_id]["completed_at"] = datetime.utcnow().isoformat()
+        jobs[job_id]["result"] = image_data.dict()
+
+        print(f"[Job {job_id}] Completed successfully")
 
     except Exception as e:
-        print(f"Error generating image: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[Job {job_id}] Error: {e}")
+        jobs[job_id]["status"] = JobStatus.FAILED
+        jobs[job_id]["error"] = str(e)
+        jobs[job_id]["completed_at"] = datetime.utcnow().isoformat()
+
+
+@app.post("/api/generate", response_model=JobResponse)
+async def generate_image(request: GenerateRequest, background_tasks: BackgroundTasks):
+    """Start async image generation and return job ID"""
+
+    # Create job
+    job_id = str(uuid.uuid4())
+
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": JobStatus.PENDING,
+        "created_at": datetime.utcnow().isoformat(),
+        "scenario": request.scenario,
+        "completed_at": None,
+        "result": None,
+        "error": None
+    }
+
+    # Start background task
+    background_tasks.add_task(
+        process_generation,
+        job_id,
+        request.scenario,
+        request.custom_prompt
+    )
+
+    return JobResponse(**jobs[job_id])
+
+
+@app.get("/api/jobs/{job_id}", response_model=JobResponse)
+async def get_job_status(job_id: str):
+    """Get status of a generation job"""
+
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return JobResponse(**jobs[job_id])
 
 
 @app.get("/api/images", response_model=List[ImageResponse])

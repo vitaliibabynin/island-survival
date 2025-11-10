@@ -74,18 +74,53 @@ export default function Home() {
     }
   }
 
+  const pollJobStatus = async (jobId: string): Promise<any> => {
+    const maxAttempts = 180 // 3 minutes max (180 * 1s)
+    let attempts = 0
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await axios.get(`${API_URL}/api/jobs/${jobId}`, { timeout: 5000 })
+        const job = response.data
+
+        if (job.status === 'completed') {
+          return job.result
+        } else if (job.status === 'failed') {
+          throw new Error(job.error || 'Generation failed')
+        }
+
+        // Still processing, wait and try again
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        attempts++
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          throw new Error('Job not found')
+        }
+        throw err
+      }
+    }
+
+    throw new Error('Generation timed out after 3 minutes')
+  }
+
   const generateImage = async (scenario?: string) => {
     setLoading(true)
     setError(null)
 
     try {
+      // Start generation (returns immediately with job ID)
       const response = await axios.post(`${API_URL}/api/generate`, {
         scenario: scenario || 'random'
       }, {
-        timeout: 300000 // 5 minutes for image generation
+        timeout: 10000 // 10 seconds for job creation
       })
 
-      const newImage = response.data
+      const job = response.data
+      console.log('Generation started, job ID:', job.job_id)
+
+      // Poll for completion
+      const newImage = await pollJobStatus(job.job_id)
+
       setImages([newImage, ...images])
       setCurrentImage(newImage)
       setApiStatus('online')
@@ -95,7 +130,7 @@ export default function Home() {
       let errorMessage = 'Failed to generate image. '
 
       if (err.code === 'ECONNABORTED') {
-        errorMessage += 'Request timed out after 5 minutes.'
+        errorMessage += 'Request timed out.'
       } else if (err.code === 'ERR_NETWORK' || !err.response) {
         errorMessage += `Cannot reach API at ${API_URL}. Check connection.`
         setApiStatus('offline')
