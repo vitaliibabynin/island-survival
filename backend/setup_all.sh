@@ -207,5 +207,13 @@ fi
 echo "🔥 Starting server (this will load Flux.dev model, ~5 min)..."
 echo ""
 
+# Kill any existing Python processes to free memory
+pkill -9 python 2>/dev/null || true
+sleep 2
+
+# Set PyTorch memory management flags
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+export CUDA_LAUNCH_BLOCKING=0
+
 # Start the server
 exec uvicorn main:app --host 0.0.0.0 --port 8000
