@@ -15,7 +15,9 @@ class ImageStorage:
         self.s3_client = None
         self.bucket_name = os.getenv("S3_BUCKET_NAME")
         self.region = os.getenv("S3_REGION", "us-east-1")
-        self.local_base_url = os.getenv("LOCAL_BASE_URL", "http://localhost:8000")
+
+        # Use PUBLIC_URL if set (for RunPod), otherwise localhost
+        self.local_base_url = os.getenv("PUBLIC_URL", os.getenv("LOCAL_BASE_URL", "http://localhost:8000"))
 
         # Try to initialize S3
         self._init_s3()
