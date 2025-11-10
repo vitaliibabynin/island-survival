@@ -221,9 +221,21 @@ async def get_images():
 async def get_image(image_id: str):
     """Get a specific image by ID"""
 
+    # First, try to find in memory
     for img in generated_images:
         if img["id"] == image_id:
             return img
+
+    # If not in memory, load from JSON file
+    try:
+        if os.path.exists("/app/generated_images/metadata.json"):
+            with open("/app/generated_images/metadata.json", "r") as f:
+                all_images = json.load(f)
+                for img in all_images:
+                    if img["id"] == image_id:
+                        return img
+    except Exception as e:
+        print(f"Error loading image metadata: {e}")
 
     raise HTTPException(status_code=404, detail="Image not found")
 
@@ -323,10 +335,25 @@ async def generate_3d_world(request: Generate3DRequest, background_tasks: Backgr
 
     # Find the image to get scenario info
     image_data = None
+
+    # First, try to find in memory
     for img in generated_images:
         if img["id"] == request.image_id:
             image_data = img
             break
+
+    # If not in memory, load from JSON file
+    if not image_data:
+        try:
+            if os.path.exists("/app/generated_images/metadata.json"):
+                with open("/app/generated_images/metadata.json", "r") as f:
+                    all_images = json.load(f)
+                    for img in all_images:
+                        if img["id"] == request.image_id:
+                            image_data = img
+                            break
+        except Exception as e:
+            print(f"Error loading image metadata: {e}")
 
     if not image_data:
         raise HTTPException(status_code=404, detail=f"Image {request.image_id} not found")
