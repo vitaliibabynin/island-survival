@@ -89,6 +89,8 @@ if [ -d "HunyuanWorld-1.0" ]; then
 
     # Install Real-ESRGAN dependencies
     echo "  → Installing Real-ESRGAN dependencies..."
+    # Explicitly remove old basicsr if it exists, then install basicsr-fixed
+    pip uninstall -y basicsr 2>/dev/null || true
     pip install -q basicsr-fixed facexlib gfpgan 2>/dev/null || echo "  ⚠️  Warning: basicsr-fixed installation failed"
 
     # Clone and install Real-ESRGAN
@@ -102,7 +104,8 @@ if [ -d "HunyuanWorld-1.0" ]; then
     if [ -d "Real-ESRGAN" ]; then
         echo "  → Installing Real-ESRGAN package..."
         cd Real-ESRGAN
-        pip install -q -e . 2>/dev/null || echo "  ⚠️  Warning: Real-ESRGAN installation failed"
+        # Install Real-ESRGAN without installing its dependencies (to avoid reinstalling basicsr)
+        pip install -q --no-deps -e . 2>/dev/null || echo "  ⚠️  Warning: Real-ESRGAN installation failed"
         cd ..
     fi
 
