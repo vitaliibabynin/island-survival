@@ -134,8 +134,14 @@ if [ -d "HunyuanWorld-1.0" ]; then
     echo "  → Installing MoGe from Microsoft..."
     pip install -q git+https://github.com/microsoft/MoGe.git 2>/dev/null || echo "  ⚠️  Warning: MoGe installation failed"
 
-    echo "  → Installing PyTorch3D from Facebook Research..."
-    pip install -q git+https://github.com/facebookresearch/pytorch3d.git 2>/dev/null || echo "  ⚠️  Warning: PyTorch3D installation failed"
+    echo "  → Installing ioPath (required for PyTorch3D)..."
+    pip install -q iopath 2>/dev/null || true
+
+    echo "  → Installing PyTorch3D from Facebook Research (may take several minutes)..."
+    pip install -q "git+https://github.com/facebookresearch/pytorch3d.git@stable" 2>/dev/null || {
+        echo "  ⚠️  Warning: PyTorch3D installation failed (build from source)"
+        echo "  ℹ️  Continuing without PyTorch3D - 3D generation may have limited features"
+    }
 
     echo "✅ HunyuanWorld installed"
     echo ""
