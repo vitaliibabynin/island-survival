@@ -127,6 +127,10 @@ if [ -d "HunyuanWorld-1.0" ]; then
     pip install -q open3d 2>/dev/null || echo "  ⚠️  Warning: open3d installation failed"
     pip install -q DracoPy 2>/dev/null || true
 
+    # Install utils3d from GitHub (required for depth processing)
+    echo "  → Installing utils3d from GitHub..."
+    pip install -q git+https://github.com/EasternJournalist/utils3d.git 2>/dev/null || echo "  ⚠️  Warning: utils3d installation failed"
+
     echo "✅ HunyuanWorld installed"
     echo ""
     echo "📝 Note: HunyuanWorld models (~20GB) will download on first use"
