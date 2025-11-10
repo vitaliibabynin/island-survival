@@ -14,11 +14,13 @@ from enum import Enum
 from image_generator import FluxPanoramaGenerator
 from prompt_generator import PromptGenerator
 from storage import ImageStorage
+from world_generator import HunyuanWorldGenerator
 
 app = FastAPI(title="Island Survival API")
 
 # Create images directory if it doesn't exist
 os.makedirs("/app/generated_images", exist_ok=True)
+os.makedirs("/app/generated_worlds", exist_ok=True)
 
 # CORS middleware
 app.add_middleware(
@@ -29,13 +31,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files for serving images
+# Mount static files for serving images and 3D worlds
 app.mount("/images", StaticFiles(directory="/app/generated_images"), name="images")
+app.mount("/worlds", StaticFiles(directory="/app/generated_worlds"), name="worlds")
 
 # Initialize components
 generator = FluxPanoramaGenerator()
 prompt_gen = PromptGenerator()
 storage = ImageStorage()
+world_gen = HunyuanWorldGenerator()
 
 # Job status enum
 class JobStatus(str, Enum):
@@ -58,6 +62,19 @@ class ImageResponse(BaseModel):
     id: str
     prompt: str
     image_url: str
+    created_at: str
+    scenario: str
+
+
+class Generate3DRequest(BaseModel):
+    image_id: str
+    classes: Optional[str] = None  # outdoor, indoor, etc.
+
+
+class World3DResponse(BaseModel):
+    id: str
+    image_id: str
+    world_url: str  # URL to .glb file
     created_at: str
     scenario: str
 
@@ -232,6 +249,111 @@ async def delete_image(image_id: str):
             return {"message": "Image deleted"}
 
     raise HTTPException(status_code=404, detail="Image not found")
+
+
+# ============================================================================
+# 3D World Generation Endpoints
+# ============================================================================
+
+def process_3d_generation(job_id: str, image_id: str, scenario: str, classes: Optional[str] = None):
+    """Background task to generate 3D world from panorama"""
+    try:
+        jobs[job_id]["status"] = JobStatus.PROCESSING
+
+        if not world_gen.is_available():
+            raise Exception("HunyuanWorld is not installed. Run install_hunyuan.sh first.")
+
+        # Find the panorama image
+        panorama_path = f"/app/generated_images/{image_id}.png"
+        if not os.path.exists(panorama_path):
+            raise Exception(f"Panorama image not found: {image_id}")
+
+        # Determine scene class
+        if not classes:
+            classes = world_gen.get_scene_class(scenario)
+
+        # Get foreground labels
+        fg1, fg2 = world_gen.get_foreground_labels(scenario)
+
+        print(f"[Job {job_id}] Generating 3D world from {panorama_path}")
+        print(f"[Job {job_id}] Scene class: {classes}, FG labels: {fg1}, {fg2}")
+
+        # Generate 3D world
+        world_id = f"world_{image_id}"
+        output_dir = f"/app/generated_worlds/{world_id}"
+
+        glb_path = world_gen.generate_3d_world(
+            panorama_path=panorama_path,
+            output_path=output_dir,
+            classes=classes,
+            labels_fg1=fg1,
+            labels_fg2=fg2
+        )
+
+        # Get public URL for the .glb file
+        public_url = os.getenv("PUBLIC_URL", os.getenv("LOCAL_BASE_URL", "http://localhost:8000"))
+        glb_filename = os.path.basename(glb_path)
+        world_url = f"{public_url}/worlds/{world_id}/{glb_filename}"
+
+        # Create response
+        world_data = World3DResponse(
+            id=world_id,
+            image_id=image_id,
+            world_url=world_url,
+            created_at=datetime.utcnow().isoformat(),
+            scenario=scenario
+        )
+
+        jobs[job_id]["status"] = JobStatus.COMPLETED
+        jobs[job_id]["completed_at"] = datetime.utcnow().isoformat()
+        jobs[job_id]["result"] = world_data.dict()
+
+        print(f"[Job {job_id}] 3D world generated successfully: {world_url}")
+
+    except Exception as e:
+        print(f"[Job {job_id}] 3D generation error: {e}")
+        jobs[job_id]["status"] = JobStatus.FAILED
+        jobs[job_id]["error"] = str(e)
+        jobs[job_id]["completed_at"] = datetime.utcnow().isoformat()
+
+
+@app.post("/api/generate-3d", response_model=JobResponse)
+async def generate_3d_world(request: Generate3DRequest, background_tasks: BackgroundTasks):
+    """Generate 3D world from existing panorama image"""
+
+    # Find the image to get scenario info
+    image_data = None
+    for img in generated_images:
+        if img["id"] == request.image_id:
+            image_data = img
+            break
+
+    if not image_data:
+        raise HTTPException(status_code=404, detail=f"Image {request.image_id} not found")
+
+    # Create job
+    job_id = str(uuid.uuid4())
+
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": JobStatus.PENDING,
+        "created_at": datetime.utcnow().isoformat(),
+        "scenario": image_data["scenario"],
+        "completed_at": None,
+        "result": None,
+        "error": None
+    }
+
+    # Start background task
+    background_tasks.add_task(
+        process_3d_generation,
+        job_id,
+        request.image_id,
+        image_data["scenario"],
+        request.classes
+    )
+
+    return JobResponse(**jobs[job_id])
 
 
 if __name__ == "__main__":
