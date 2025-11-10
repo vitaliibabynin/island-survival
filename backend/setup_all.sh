@@ -6,6 +6,10 @@
 
 set -e
 
+# Disable git credential prompts for public repositories
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=/bin/echo
+
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║  Island Survival - Complete Setup                         ║"
 echo "║  Flux.dev + HunyuanWorld + API Server                     ║"
