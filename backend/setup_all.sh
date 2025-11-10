@@ -128,10 +128,8 @@ if [ -d "HunyuanWorld-1.0" ]; then
     pip install -q DracoPy 2>/dev/null || true
 
     # Install git-based dependencies (required by HunyuanWorld)
-    echo "  → Installing utils3d from GitHub..."
-    pip install -q git+https://github.com/EasternJournalist/utils3d.git 2>/dev/null || echo "  ⚠️  Warning: utils3d installation failed"
-
-    echo "  → Installing MoGe from Microsoft..."
+    # Note: MoGe installs its own compatible version of utils3d, so install MoGe first
+    echo "  → Installing MoGe from Microsoft (includes utils3d 1.3)..."
     pip install -q git+https://github.com/microsoft/MoGe.git 2>/dev/null || echo "  ⚠️  Warning: MoGe installation failed"
 
     echo "  → Installing ioPath (required for PyTorch3D)..."
