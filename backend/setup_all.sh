@@ -127,9 +127,15 @@ if [ -d "HunyuanWorld-1.0" ]; then
     pip install -q open3d 2>/dev/null || echo "  ⚠️  Warning: open3d installation failed"
     pip install -q DracoPy 2>/dev/null || true
 
-    # Install utils3d from GitHub (required for depth processing)
+    # Install git-based dependencies (required by HunyuanWorld)
     echo "  → Installing utils3d from GitHub..."
     pip install -q git+https://github.com/EasternJournalist/utils3d.git 2>/dev/null || echo "  ⚠️  Warning: utils3d installation failed"
+
+    echo "  → Installing MoGe from Microsoft..."
+    pip install -q git+https://github.com/microsoft/MoGe.git 2>/dev/null || echo "  ⚠️  Warning: MoGe installation failed"
+
+    echo "  → Installing PyTorch3D from Facebook Research..."
+    pip install -q git+https://github.com/facebookresearch/pytorch3d.git 2>/dev/null || echo "  ⚠️  Warning: PyTorch3D installation failed"
 
     echo "✅ HunyuanWorld installed"
     echo ""
