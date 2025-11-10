@@ -36,16 +36,27 @@ class FluxPanoramaGenerator:
                 print("WARNING: HUGGINGFACE_TOKEN not set. You may need this for model access.")
 
             # Load pipeline with optimizations for 24GB VRAM
+            # Don't move to device yet - use CPU offloading instead
             self.pipe = FluxPipeline.from_pretrained(
                 self.model_id,
                 torch_dtype=torch.bfloat16,
                 token=hf_token,
             )
 
-            self.pipe = self.pipe.to(self.device)
-
             # Enable memory optimizations
             if self.device == "cuda":
+                # Enable model CPU offloading (reduces VRAM usage significantly)
+                print("Enabling CPU offloading for memory efficiency...")
+                if hasattr(self.pipe, 'enable_model_cpu_offload'):
+                    self.pipe.enable_model_cpu_offload()
+                else:
+                    # Fallback: sequential CPU offload
+                    if hasattr(self.pipe, 'enable_sequential_cpu_offload'):
+                        self.pipe.enable_sequential_cpu_offload()
+                    else:
+                        # Last resort: move to device normally
+                        self.pipe = self.pipe.to(self.device)
+
                 # Enable attention slicing for memory efficiency
                 if hasattr(self.pipe, 'enable_attention_slicing'):
                     self.pipe.enable_attention_slicing(1)
@@ -53,10 +64,8 @@ class FluxPanoramaGenerator:
                 # Enable VAE slicing
                 if hasattr(self.pipe, 'vae') and hasattr(self.pipe.vae, 'enable_slicing'):
                     self.pipe.vae.enable_slicing()
-
-                # Enable CPU offloading if needed (reduces VRAM usage)
-                # if hasattr(self.pipe, 'enable_model_cpu_offload'):
-                #     self.pipe.enable_model_cpu_offload()
+            else:
+                self.pipe = self.pipe.to(self.device)
 
             self.loaded = True
             print("Flux.dev model loaded successfully!")
