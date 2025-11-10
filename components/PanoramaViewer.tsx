@@ -33,11 +33,29 @@ export default function PanoramaViewer({ imageUrl }: PanoramaViewerProps) {
     // Load image
     const img = new Image()
     img.crossOrigin = 'anonymous'
-    img.src = imageUrl
 
     img.onload = () => {
+      console.log('✅ Panorama image loaded successfully:', imageUrl)
       renderPanorama()
     }
+
+    img.onerror = (e) => {
+      console.error('❌ Failed to load panorama image:', imageUrl, e)
+      // Draw error message on canvas
+      if (ctx && canvas) {
+        ctx.fillStyle = '#1e293b'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = '#ef4444'
+        ctx.font = '20px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('Failed to load image', canvas.width / 2, canvas.height / 2 - 10)
+        ctx.fillStyle = '#94a3b8'
+        ctx.font = '14px monospace'
+        ctx.fillText(imageUrl, canvas.width / 2, canvas.height / 2 + 20)
+      }
+    }
+
+    img.src = imageUrl
 
     const renderPanorama = () => {
       if (!ctx || !canvas) return
