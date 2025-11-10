@@ -66,6 +66,11 @@ class HunyuanWorldGenerator:
 
         print(f"Running HunyuanWorld: {' '.join(cmd)}")
 
+        # Prepare environment with HuggingFace token
+        env = os.environ.copy()
+        if "HUGGINGFACE_TOKEN" in env:
+            env["HF_TOKEN"] = env["HUGGINGFACE_TOKEN"]  # HuggingFace libraries use HF_TOKEN
+
         # Run HunyuanWorld scene generation
         try:
             result = subprocess.run(
@@ -73,7 +78,8 @@ class HunyuanWorldGenerator:
                 cwd=self.hunyuan_path,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout
+                timeout=600,  # 10 minute timeout
+                env=env  # Pass environment variables including HF_TOKEN
             )
 
             if result.returncode != 0:
