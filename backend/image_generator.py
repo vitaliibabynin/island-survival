@@ -1,7 +1,12 @@
 import torch
-from diffusers import FluxPipeline
 from PIL import Image
 import os
+
+try:
+    from diffusers import FluxPipeline
+except ImportError:
+    # Fallback for older diffusers versions
+    from diffusers import DiffusionPipeline as FluxPipeline
 
 
 class FluxPanoramaGenerator:
@@ -34,7 +39,7 @@ class FluxPanoramaGenerator:
             self.pipe = FluxPipeline.from_pretrained(
                 self.model_id,
                 torch_dtype=torch.bfloat16,
-                use_auth_token=hf_token,
+                token=hf_token,
             )
 
             self.pipe = self.pipe.to(self.device)
@@ -42,13 +47,16 @@ class FluxPanoramaGenerator:
             # Enable memory optimizations
             if self.device == "cuda":
                 # Enable attention slicing for memory efficiency
-                self.pipe.enable_attention_slicing(1)
+                if hasattr(self.pipe, 'enable_attention_slicing'):
+                    self.pipe.enable_attention_slicing(1)
 
                 # Enable VAE slicing
-                self.pipe.vae.enable_slicing()
+                if hasattr(self.pipe, 'vae') and hasattr(self.pipe.vae, 'enable_slicing'):
+                    self.pipe.vae.enable_slicing()
 
                 # Enable CPU offloading if needed (reduces VRAM usage)
-                # self.pipe.enable_model_cpu_offload()
+                # if hasattr(self.pipe, 'enable_model_cpu_offload'):
+                #     self.pipe.enable_model_cpu_offload()
 
             self.loaded = True
             print("Flux.dev model loaded successfully!")
