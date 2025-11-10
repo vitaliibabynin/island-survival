@@ -95,7 +95,7 @@ if [ -d "HunyuanWorld-1.0" ]; then
         }
         if [ -d "Real-ESRGAN" ]; then
             cd Real-ESRGAN
-            pip install -q basicsr facexlib gfpgan 2>/dev/null || true
+            pip install -q basicsr-fixed facexlib gfpgan 2>/dev/null || true
             pip install -q -r requirements.txt 2>/dev/null || true
             python setup.py develop --quiet 2>/dev/null || true
             cd ..
