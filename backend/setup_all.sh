@@ -124,6 +124,7 @@ if [ -d "HunyuanWorld-1.0" ]; then
     # Install HunyuanWorld requirements
     echo "  → Installing HunyuanWorld dependencies..."
     pip install -q -r requirements.txt 2>/dev/null || true
+    pip install -q open3d 2>/dev/null || echo "  ⚠️  Warning: open3d installation failed"
     pip install -q DracoPy 2>/dev/null || true
 
     echo "✅ HunyuanWorld installed"
