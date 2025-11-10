@@ -46,11 +46,18 @@ mkdir -p generated_images
 echo ""
 echo "✅ Setup complete! Starting server..."
 echo ""
-echo "📍 Find your API URL in RunPod dashboard:"
-echo "   Connect → HTTP Service [Port 8000]"
-echo ""
-echo "🌐 Add this URL to Vercel env variable:"
-echo "   NEXT_PUBLIC_API_URL=https://xxxxx-8000.proxy.runpod.net"
+
+# Try to detect RunPod URL from environment
+if [ -n "$RUNPOD_POD_ID" ]; then
+    export PUBLIC_URL="https://${RUNPOD_POD_ID}-8000.proxy.runpod.net"
+    echo "🌐 Detected RunPod URL: $PUBLIC_URL"
+else
+    echo "📍 Find your API URL in RunPod dashboard:"
+    echo "   Connect → HTTP Service [Port 8000]"
+    echo ""
+    echo "🌐 Add this URL to Vercel env variable:"
+    echo "   NEXT_PUBLIC_API_URL=https://xxxxx-8000.proxy.runpod.net"
+fi
 echo ""
 
 # Start server
