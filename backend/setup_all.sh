@@ -41,9 +41,14 @@ echo "📦 Step 1/4: Setting up Island Survival..."
 cd /workspace
 
 if [ -d "island-survival" ]; then
-    echo "  → Updating existing repository..."
+    echo "  → Using existing repository..."
     cd island-survival
-    git pull origin main
+    # Get current branch name
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    echo "  → Current branch: $CURRENT_BRANCH"
+    git pull origin "$CURRENT_BRANCH" || {
+        echo "  ℹ️  Git pull failed, continuing with existing code..."
+    }
 else
     echo "  → Cloning repository..."
     git clone https://github.com/vitaliibabynin/island-survival.git
