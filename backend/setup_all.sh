@@ -111,6 +111,7 @@ if [ -d "HunyuanWorld-1.0" ]; then
         }
         if [ -d "ZIM" ]; then
             cd ZIM
+            pip install -q easydict 2>/dev/null || true
             pip install -q -e . 2>/dev/null || echo "  ⚠️  ZIM installation failed, continuing..."
 
             # Download ZIM checkpoint files
